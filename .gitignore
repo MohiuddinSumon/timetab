@@ -1,0 +1,11 @@
+*.json
+.venv
+build
+dist
+venv
+auto.py
+frame_style.py
+modern.py
+*.exe
+*.exe.spec
+
