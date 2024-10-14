@@ -8,4 +8,6 @@ frame_style.py
 modern.py
 *.exe
 *.exe.spec
+*.pem
+*.bkp
 

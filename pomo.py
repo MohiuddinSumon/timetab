@@ -3,10 +3,13 @@ import datetime
 import hashlib
 import json
 import os
+import socket
+import ssl
 import sys
 import threading
 import tkinter as tk
 import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from tkinter import messagebox, simpledialog, ttk
 
@@ -23,6 +26,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
+REDIRECT_URI = "https://localhost:8080/"
 
 # Define the color dictionary
 COLORS = {
@@ -49,6 +53,76 @@ def get_resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+
+class ToolTip(object):
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+        self.id = None
+        self.x = self.y = 0
+
+    def showtip(self, text):
+        "Display text in tooltip window"
+        self.text = text
+        if self.tipwindow or not self.text:
+            return
+        bbox = self.widget.bbox("insert")
+        if not bbox:  # If bbox is None, use the widget's position
+            x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+            y = self.widget.winfo_rooty() + self.widget.winfo_height()
+        else:
+            x, y, _, _ = bbox
+            x += self.widget.winfo_rootx() + 25
+            y += self.widget.winfo_rooty() + 25
+
+        # creates a toplevel window
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        # Leaves only the label and removes the app window
+        tw.wm_overrideredirect(1)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify=tk.LEFT,
+            background="#ffffe0",
+            relief=tk.SOLID,
+            borderwidth=1,
+            font=("tahoma", "8", "normal"),
+        )
+        label.pack(ipadx=1)
+
+    def hidetip(self):
+        tw = self.tipwindow
+        self.tipwindow = None
+        if tw:
+            tw.destroy()
+
+
+def create_tooltip(widget, text):
+    toolTip = ToolTip(widget)
+
+    def enter(event):
+        toolTip.showtip(text)
+
+    def leave(event):
+        toolTip.hidetip()
+
+    widget.bind("<Enter>", enter)
+    widget.bind("<Leave>", leave)
+
+
+class OAuthCallbackHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"Authentication successful! You can close this window.")
+        self.server.last_handler = self
+
+    def log_message(self, format, *args):
+        # Suppress console output
+        return
 
 
 def get_config_path():
@@ -89,26 +163,8 @@ class LoginScreen(tk.Frame):
         )
         self.auth_button.pack(pady=10)
 
-        self.auth_code_label = ttk.Label(self, text="Enter the authorization code:")
-        self.auth_code_label.pack(pady=5)
-
-        self.auth_code_entry = ttk.Entry(self, width=50)
-        self.auth_code_entry.pack(pady=5)
-
-        self.submit_button = ttk.Button(
-            self, text="Submit", command=self.submit_auth_code
-        )
-        self.submit_button.pack(pady=10)
-
     def start_auth(self):
-        threading.Thread(target=self.parent.start_authentication, daemon=True).start()
-
-    def submit_auth_code(self):
-        auth_code = self.auth_code_entry.get()
-        if auth_code:
-            self.parent.complete_authentication(auth_code)
-        else:
-            messagebox.showerror("Error", "Please enter the authorization code.")
+        self.parent.start_oauth_flow()
 
 
 class CalendarWidgetMain(tk.Frame):
@@ -391,31 +447,34 @@ class CalendarWidgetMain(tk.Frame):
             )
             y_offset += 20
             for event in current_events:
-                start = event["start"].get("dateTime", event["start"].get("date"))
-                end = event["end"].get("dateTime", event["end"].get("date"))
-                start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
-                end_dt = datetime.datetime.fromisoformat(end.replace("Z", "+00:00"))
+                self.create_event_rectangle(event, y_offset, "#0B8043")
 
-                color = "#0B8043"
-                self.events_canvas.create_rectangle(
-                    10, y_offset, 270, y_offset + 40, fill=color, outline=""
-                )
-                self.events_canvas.create_text(
-                    25,
-                    y_offset + 10,
-                    text=f"{start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%Y-%m-%d %H:%M')}",
-                    anchor="w",
-                    fill="white",
-                    font=("Arial", 9),
-                )
-                self.events_canvas.create_text(
-                    25,
-                    y_offset + 25,
-                    text=event["summary"],
-                    anchor="w",
-                    fill="white",
-                    font=("Arial", 12, "bold"),
-                )
+                # start = event["start"].get("dateTime", event["start"].get("date"))
+                # end = event["end"].get("dateTime", event["end"].get("date"))
+                # start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
+                # end_dt = datetime.datetime.fromisoformat(end.replace("Z", "+00:00"))
+
+                # color = "#0B8043"
+                # self.events_canvas.create_rectangle(
+                #     10, y_offset, 270, y_offset + 40, fill=color, outline=""
+                # )
+                # self.events_canvas.create_text(
+                #     25,
+                #     y_offset + 10,
+                #     text=f"{start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%Y-%m-%d %H:%M')}",
+                #     anchor="w",
+                #     fill="white",
+                #     font=("Arial", 9),
+                # )
+                # self.events_canvas.create_text(
+                #     25,
+                #     y_offset + 25,
+                #     text=event["summary"],
+                #     anchor="w",
+                #     fill="white",
+                #     font=("Arial", 12, "bold"),
+                # )
+
                 y_offset += 50
         else:
             self.events_canvas.create_text(
@@ -450,33 +509,34 @@ class CalendarWidgetMain(tk.Frame):
             )
             y_offset += 20
 
-            for i, event in enumerate(
-                upcoming_events[:4]
-            ):  # Display only 4 upcoming events
-                start = event["start"].get("dateTime", event["start"].get("date"))
-                start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
-                start_str = start_dt.strftime("%Y-%m-%d %H:%M")
-
+            for i, event in enumerate(upcoming_events[:4]):
                 color = colors[i % len(colors)]
-                self.events_canvas.create_rectangle(
-                    10, y_offset, 270, y_offset + 40, fill=color, outline=""
-                )
-                self.events_canvas.create_text(
-                    25,
-                    y_offset + 10,
-                    text=start_str,
-                    anchor="w",
-                    fill="white",
-                    font=("Arial", 8),
-                )
-                self.events_canvas.create_text(
-                    25,
-                    y_offset + 25,
-                    text=event["summary"],
-                    anchor="w",
-                    fill="white",
-                    font=("Arial", 10, "bold"),
-                )
+                self.create_event_rectangle(event, y_offset, color)
+
+                # start = event["start"].get("dateTime", event["start"].get("date"))
+                # start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
+                # start_str = start_dt.strftime("%Y-%m-%d %H:%M")
+
+                # color = colors[i % len(colors)]
+                # self.events_canvas.create_rectangle(
+                #     10, y_offset, 270, y_offset + 40, fill=color, outline=""
+                # )
+                # self.events_canvas.create_text(
+                #     25,
+                #     y_offset + 10,
+                #     text=start_str,
+                #     anchor="w",
+                #     fill="white",
+                #     font=("Arial", 8),
+                # )
+                # self.events_canvas.create_text(
+                #     25,
+                #     y_offset + 25,
+                #     text=event["summary"],
+                #     anchor="w",
+                #     fill="white",
+                #     font=("Arial", 10, "bold"),
+                # )
                 y_offset += 50
         else:
             self.events_canvas.create_text(
@@ -486,6 +546,86 @@ class CalendarWidgetMain(tk.Frame):
                 anchor="w",
                 font=("Arial", 12, "bold"),
             )
+
+    def create_event_rectangle(self, event, y_offset, color):
+        start = event["start"].get("dateTime", event["start"].get("date"))
+        end = event["end"].get("dateTime", event["end"].get("date"))
+        start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
+        end_dt = datetime.datetime.fromisoformat(end.replace("Z", "+00:00"))
+
+        rect_id = self.events_canvas.create_rectangle(
+            10, y_offset, 270, y_offset + 40, fill=color, outline=""
+        )
+        text_id1 = self.events_canvas.create_text(
+            25,
+            y_offset + 10,
+            text=f"{start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%Y-%m-%d %H:%M')}",
+            anchor="w",
+            fill="white",
+            font=("Arial", 9),
+        )
+        text_id2 = self.events_canvas.create_text(
+            25,
+            y_offset + 25,
+            text=event["summary"],
+            anchor="w",
+            fill="white",
+            font=("Arial", 12, "bold"),
+        )
+
+        # Create tooltip for the event
+        description = event.get("description", "No description available")
+        tooltip_text = f"Summary: {event['summary']}\nDescription: {description}"
+
+        def show_tooltip(event):
+            if not hasattr(self, "tip") or not self.tip.winfo_exists():
+                x = self.events_canvas.winfo_rootx() + event.x + 10
+                y = self.events_canvas.winfo_rooty() + event.y + 10
+                self.tip = tk.Toplevel(self.events_canvas)
+                self.tip.wm_overrideredirect(True)
+                self.tip.wm_geometry(f"+{x}+{y}")
+                label = tk.Label(
+                    self.tip,
+                    text=tooltip_text,
+                    justify=tk.LEFT,
+                    background="#ffffe0",
+                    relief=tk.SOLID,
+                    borderwidth=1,
+                    font=("tahoma", "8", "normal"),
+                )
+                label.pack(ipadx=1)
+
+        def hide_tooltip(event):
+            if hasattr(self, "tip") and self.tip.winfo_exists():
+                self.tip.destroy()
+
+        def on_enter(event):
+            # Change color only, skip zooming
+            lighter_color = self.lighten_color(color)
+            self.events_canvas.itemconfig(rect_id, fill=lighter_color)
+            show_tooltip(event)
+
+        def on_leave(event):
+            # Restore original color
+            self.events_canvas.itemconfig(rect_id, fill=color)
+            hide_tooltip(event)
+
+        self.events_canvas.tag_bind(rect_id, "<Enter>", on_enter)
+        self.events_canvas.tag_bind(rect_id, "<Leave>", on_leave)
+        self.events_canvas.tag_bind(text_id1, "<Enter>", on_enter)
+        self.events_canvas.tag_bind(text_id1, "<Leave>", on_leave)
+        self.events_canvas.tag_bind(text_id2, "<Enter>", on_enter)
+        self.events_canvas.tag_bind(text_id2, "<Leave>", on_leave)
+
+    def lighten_color(self, color):
+        # Convert color to RGB
+        r, g, b = self.winfo_rgb(color)
+        # Lighten the color
+        r = min(int(r * 1.2), 65535)
+        g = min(int(g * 1.2), 65535)
+        b = min(int(b * 1.2), 65535)
+        # Convert back to hex
+        return f"#{r//256:02x}{g//256:02x}{b//256:02x}"
 
     def get_upcoming_events(self):
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -702,6 +842,7 @@ class CalendarWidget(tk.Tk):
 
             if not creds:
                 self.show_login_screen()
+                # self.start_oauth_flow()
                 return
 
         # Save the refreshed credentials
@@ -756,6 +897,99 @@ class CalendarWidget(tk.Tk):
         encrypted_creds = self.encryptor.encrypt(creds_data)
         with open(self.token_path, "w") as token_file:
             token_file.write(encrypted_creds)
+
+    def start_oauth_flow(self):
+        credentials_path = get_resource_path("credentials.json")
+        self.flow = Flow.from_client_secrets_file(
+            credentials_path, scopes=SCOPES, redirect_uri=REDIRECT_URI
+        )
+
+        auth_url, _ = self.flow.authorization_url(prompt="consent")
+
+        # Open the default web browser
+        webbrowser.open(auth_url)
+
+        # Start local server to handle the callback
+        # self.start_local_server()
+
+        # Start secure local server to handle the callback
+        self.start_secure_local_server()
+
+    def start_local_server(self):
+        def run_server():
+            port = 8080
+            while True:
+                try:
+                    httpd = HTTPServer(("localhost", port), OAuthCallbackHandler)
+                    break
+                except socket.error:
+                    port += 1
+
+            httpd.handle_request()
+            authorization_response = REDIRECT_URI + httpd.path
+            self.complete_oauth_flow(authorization_response)
+
+        thread = threading.Thread(target=run_server)
+        thread.daemon = True
+        thread.start()
+
+    def start_secure_local_server(self):
+        key_file_path = get_resource_path("key.pem")
+        cert_file_path = get_resource_path("cert.pem")
+
+        def run_server():
+            port = 8080
+            while True:
+                try:
+                    handler = OAuthCallbackHandler
+                    httpd = HTTPServer(("localhost", port), handler)
+
+                    # Create SSL context
+                    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+                    ssl_context.load_cert_chain(
+                        certfile=cert_file_path, keyfile=key_file_path
+                    )
+
+                    # Wrap the socket with SSL
+                    httpd.socket = ssl_context.wrap_socket(
+                        httpd.socket, server_side=True
+                    )
+
+                    print(f"Server running on https://localhost:{port}")
+                    break
+                except socket.error:
+                    port += 1
+
+            httpd.handle_request()
+
+            # Access the path from the handler instance
+            if hasattr(httpd, "last_handler") and hasattr(httpd.last_handler, "path"):
+                authorization_response = REDIRECT_URI + httpd.last_handler.path
+                self.complete_oauth_flow(authorization_response)
+            else:
+                print("Error: Unable to get authorization response")
+
+        thread = threading.Thread(target=run_server)
+        thread.daemon = True
+        thread.start()
+
+    def complete_oauth_flow(self, authorization_response):
+        try:
+            self.flow.fetch_token(authorization_response=authorization_response)
+            creds = self.flow.credentials
+
+            self.save_credentials(creds)
+
+            self.service = build("calendar", "v3", credentials=creds)
+            self.after(100, self.show_calendar_widget)
+        except Exception as e:
+            print("Error : ", e)
+            self.after(
+                100,
+                lambda: messagebox.showerror(
+                    "Authentication Error", f"An error occurred: {str(e)}"
+                ),
+            )
 
 
 if __name__ == "__main__":
