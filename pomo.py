@@ -448,33 +448,6 @@ class CalendarWidgetMain(tk.Frame):
             y_offset += 20
             for event in current_events:
                 self.create_event_rectangle(event, y_offset, "#0B8043")
-
-                # start = event["start"].get("dateTime", event["start"].get("date"))
-                # end = event["end"].get("dateTime", event["end"].get("date"))
-                # start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
-                # end_dt = datetime.datetime.fromisoformat(end.replace("Z", "+00:00"))
-
-                # color = "#0B8043"
-                # self.events_canvas.create_rectangle(
-                #     10, y_offset, 270, y_offset + 40, fill=color, outline=""
-                # )
-                # self.events_canvas.create_text(
-                #     25,
-                #     y_offset + 10,
-                #     text=f"{start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%Y-%m-%d %H:%M')}",
-                #     anchor="w",
-                #     fill="white",
-                #     font=("Arial", 9),
-                # )
-                # self.events_canvas.create_text(
-                #     25,
-                #     y_offset + 25,
-                #     text=event["summary"],
-                #     anchor="w",
-                #     fill="white",
-                #     font=("Arial", 12, "bold"),
-                # )
-
                 y_offset += 50
         else:
             self.events_canvas.create_text(
@@ -512,31 +485,6 @@ class CalendarWidgetMain(tk.Frame):
             for i, event in enumerate(upcoming_events[:4]):
                 color = colors[i % len(colors)]
                 self.create_event_rectangle(event, y_offset, color)
-
-                # start = event["start"].get("dateTime", event["start"].get("date"))
-                # start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
-                # start_str = start_dt.strftime("%Y-%m-%d %H:%M")
-
-                # color = colors[i % len(colors)]
-                # self.events_canvas.create_rectangle(
-                #     10, y_offset, 270, y_offset + 40, fill=color, outline=""
-                # )
-                # self.events_canvas.create_text(
-                #     25,
-                #     y_offset + 10,
-                #     text=start_str,
-                #     anchor="w",
-                #     fill="white",
-                #     font=("Arial", 8),
-                # )
-                # self.events_canvas.create_text(
-                #     25,
-                #     y_offset + 25,
-                #     text=event["summary"],
-                #     anchor="w",
-                #     fill="white",
-                #     font=("Arial", 10, "bold"),
-                # )
                 y_offset += 50
         else:
             self.events_canvas.create_text(
@@ -731,7 +679,10 @@ class CalendarWidgetMain(tk.Frame):
     def show_break_popup(self):
         popup = tk.Toplevel(self)
         popup.title("Break Time")
-        popup.geometry("300x150")
+
+        # Maximize the window
+        popup.state("zoomed")
+        # popup.geometry("300x150")
         popup.attributes("-topmost", True)
         popup.focus_force()
         # Set custom icon
