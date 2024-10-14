@@ -164,7 +164,9 @@ class CalendarWidgetMain(tk.Frame):
         # Pomodoro styles
         style.configure("Pomodoro.TFrame", background="#f0f4f8")
         style.configure(
-            "PomodoroText.TLabel", background="#f0f4f8", font=("Helvetica", 12)
+            "PomodoroText.TLabel",
+            background="#f0f4f8",
+            font=("Helvetica", 12, "bold", "italic"),
         )
         style.configure(
             "PomodoroTime.TLabel", background="#f0f4f8", font=("Helvetica", 24, "bold")
@@ -197,6 +199,20 @@ class CalendarWidgetMain(tk.Frame):
             relief=[("pressed", "sunken")],
         )
 
+        # Dropdown menu style
+        style.configure(
+            "TMenubutton",
+            background="#3498db",
+            foreground="white",
+            font=("Helvetica", 10),
+            padding=5,
+        )
+        style.map(
+            "TMenubutton",
+            background=[("active", "#2980b9")],
+            relief=[("pressed", "sunken")],
+        )
+
     def create_header(self):
         self.header_frame = ttk.Frame(self, style="Header.TFrame")
         self.header_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -224,11 +240,37 @@ class CalendarWidgetMain(tk.Frame):
         )
         self.name_label.pack(anchor=tk.W)
 
-        # Time (right side)
+        # Time and menu (right side)
+        self.time_menu_frame = ttk.Frame(self.header_frame, style="Header.TFrame")
+        self.time_menu_frame.pack(side=tk.RIGHT)
+
         self.time_label = ttk.Label(
-            self.header_frame, text="", style="HeaderTime.TLabel"
+            self.time_menu_frame, text="", style="HeaderTime.TLabel"
         )
-        self.time_label.pack(side=tk.RIGHT)
+        self.time_label.pack(side=tk.TOP)
+
+        self.create_menu()
+
+    def create_menu(self):
+        self.menu_var = tk.StringVar()
+        self.menu = ttk.OptionMenu(
+            self.time_menu_frame,
+            self.menu_var,
+            "Menu",
+            "Settings",
+            "Logout",
+            command=self.handle_menu_selection,
+        )
+        self.menu.config(style="TMenubutton")
+        self.menu.pack(side=tk.BOTTOM)
+
+    def handle_menu_selection(self, selection):
+        if selection == "Logout":
+            self.parent.logout()
+        elif selection == "Settings":
+            # Add settings functionality here
+            pass
+        self.menu_var.set("Menu")  # Reset the menu to default text
 
     def create_events_area(self):
         self.events_canvas = tk.Canvas(self, bg="#ffffff", height=250, width=280)
@@ -236,7 +278,7 @@ class CalendarWidgetMain(tk.Frame):
 
     def create_pomodoro_area(self):
         self.pomodoro_frame = ttk.Frame(self, style="Pomodoro.TFrame")
-        self.pomodoro_frame.pack(fill=tk.X, padx=10, pady=10)
+        self.pomodoro_frame.pack(fill=tk.X, padx=10, pady=5)
 
         self.pomodoro_label = ttk.Label(
             self.pomodoro_frame, text="Focus Timer", style="PomodoroText.TLabel"
@@ -607,6 +649,24 @@ class CalendarWidget(tk.Tk):
     def show_login_screen(self):
         self.login_screen = LoginScreen(self)
         self.login_screen.pack()
+
+    def logout(self):
+        if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
+            # Clear the stored credentials
+            if os.path.exists(self.token_path):
+                os.remove(self.token_path)
+
+            # Clear the current session
+            self.service = None
+            self.user_name = "User"
+            self.user_image_url = ""
+
+            # Remove the calendar widget
+            if hasattr(self, "calendar_widget"):
+                self.calendar_widget.pack_forget()
+
+            # Show the login screen again
+            self.show_login_screen()
 
     def show_calendar_widget(self):
         if hasattr(self, "login_screen"):
