@@ -20,7 +20,7 @@ from googleapiclient.discovery import build
 from PIL import Image, ImageDraw, ImageOps, ImageTk
 
 SCOPES = [
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events.readonly",
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 REDIRECT_URI = "https://localhost:8080/"
@@ -628,21 +628,6 @@ class CalendarWidgetMain(tk.Frame):
 
         return current_events, upcoming_events
 
-    def get_current_event(self, events):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for event in events:
-            start = event["start"].get("dateTime", event["start"].get("date"))
-            end = event["end"].get("dateTime", event["end"].get("date"))
-            start_dt = datetime.datetime.fromisoformat(
-                start.replace("Z", "+00:00")
-            ).replace(tzinfo=pytz.UTC)
-            end_dt = datetime.datetime.fromisoformat(
-                end.replace("Z", "+00:00")
-            ).replace(tzinfo=pytz.UTC)
-            if start_dt <= now <= end_dt:
-                return event
-        return None
-
     def set_focus_time(self):
         new_time = simpledialog.askinteger(
             "Set Focus Time",
@@ -849,7 +834,7 @@ class CalendarWidget(tk.Tk):
         """Run the OAuth flow in a separate thread and update the UI on completion."""
         try:
             creds = flow.run_local_server(
-                port=8080, access_type="offline", prompt="consent"
+                port=0, access_type="offline", prompt="consent"
             )
             self.save_credentials(creds)
             # Use after_idle to safely update UI from the thread

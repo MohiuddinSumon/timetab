@@ -30,7 +30,7 @@ TimeTab is a desktop application that combines Google Calendar integration with 
 pip install -r requirements.txt
 ```
 
-3. Download the `credentials.json` file from the Google Developer Console and place it in the same directory as the script.
+3. Download the `credentials.json` file from the Google Developer Console and place it in the same directory as the script. Be sure to select Desktop client.
 
 ## Usage
 

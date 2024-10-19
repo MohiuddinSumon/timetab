@@ -51,17 +51,17 @@
     <h2>6. Google API Scopes</h2>
     <p>TimeTab uses the following Google API scopes:</p>
     <ul>
-        <li><strong>https://www.googleapis.com/auth/calendar.readonly</strong>: This scope allows TimeTab to view and download your Google Calendar data.</li>
+        <li><strong>https://www.googleapis.com/auth/calendar.events.readonly</strong>: This scope allows TimeTab to view your Google Calendar events.</li>
         <li><strong>https://www.googleapis.com/auth/userinfo.profile</strong>: This scope allows TimeTab to access your basic profile information, such as your name and profile picture.</li>
     </ul>
     <p>We use these scopes for the following reasons:</p>
     <ul>
-        <li>The calendar.readonly scope is necessary to fetch and display your upcoming events in the TimeTab interface. We use this to show you your current and upcoming events, helping you manage your time effectively.</li>
+        <li>The calendar.events.readonly scope is necessary to fetch and display your upcoming events in the TimeTab interface. We use this to show you your current and upcoming events, helping you manage your time effectively.</li>
         <li>The userinfo.profile scope is used to personalize your experience by displaying your name and profile picture in the application.</li>
     </ul>
     <p>We have chosen these specific scopes to balance functionality with privacy. A lesser scope would not provide sufficient access to deliver the core features of TimeTab:</p>
     <ul>
-        <li>Without calendar.readonly, we would not be able to display your calendar events, which is a core feature of TimeTab.</li>
+        <li>Without calendar.events.readonly, we would not be able to display your calendar events, which is a core feature of TimeTab.</li>
         <li>Without userinfo.profile, we would not be able to personalize your experience with your name and profile picture.</li>
     </ul>
     <p>It's important to note that TimeTab does not modify your calendar data in any way. We only read the data to display it in our application.</p>
