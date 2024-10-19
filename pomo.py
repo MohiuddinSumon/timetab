@@ -213,14 +213,27 @@ class CalendarWidgetMain(tk.Frame):
 
         # Pomodoro button styles
         style.configure(
-            "Pomodoro.TButton",
+            "Start.Pomodoro.TButton",
             background="#4CAF50",
             foreground="white",
             font=("Helvetica", 10, "bold"),
             padding=5,
         )
         style.map(
-            "Pomodoro.TButton",
+            "Start.Pomodoro.TButton",
+            background=[("active", "#b749de")],
+            relief=[("pressed", "sunken")],
+        )
+
+        style.configure(
+            "Stop.Pomodoro.TButton",
+            background="#cd50fa",
+            foreground="white",
+            font=("Helvetica", 10, "bold"),
+            padding=5,
+        )
+        style.map(
+            "Stop.Pomodoro.TButton",
             background=[("active", "#45a049")],
             relief=[("pressed", "sunken")],
         )
@@ -283,25 +296,46 @@ class CalendarWidgetMain(tk.Frame):
         self.time_menu_frame = ttk.Frame(self.header_frame, style="Header.TFrame")
         self.time_menu_frame.pack(side=tk.RIGHT)
 
-        self.time_label = ttk.Label(
-            self.time_menu_frame, text="", style="HeaderTime.TLabel"
+        # Create a horizontal frame for time and menu
+        self.time_menu_horizontal = ttk.Frame(
+            self.time_menu_frame, style="Header.TFrame"
         )
-        self.time_label.pack(side=tk.TOP)
+        self.time_menu_horizontal.pack(side=tk.TOP)
+
+        self.time_label = ttk.Label(
+            self.time_menu_horizontal, text="", style="HeaderTime.TLabel"
+        )
+        self.time_label.pack(side=tk.LEFT, padx=(0, 5))
 
         self.create_menu()
 
     def create_menu(self):
         self.menu_var = tk.StringVar()
+
+        # Create a more compact menu button
         self.menu = ttk.OptionMenu(
-            self.time_menu_frame,
+            self.time_menu_horizontal,
             self.menu_var,
-            "",
+            "",  # Use dots as menu icon
             "About",
             "Logout",
             command=self.handle_menu_selection,
         )
         self.menu.config(style="TMenubutton")
-        self.menu.pack(side=tk.BOTTOM)
+        # self.menu.pack(side=tk.BOTTOM)
+        # Configure the menu button style for minimal width
+        style = ttk.Style()
+        style.configure(
+            "TMenubutton",
+            background="#3498db",
+            foreground="white",
+            font=("Helvetica", 12),
+            padding=0,  # Reduced padding
+            width=0,  # Set minimal width
+        )
+
+        # Pack the menu button to the right of the time
+        self.menu.pack(side=tk.LEFT, padx=(0, 0))
 
     def handle_menu_selection(self, selection):
         if selection == "Logout":
@@ -331,7 +365,7 @@ class CalendarWidgetMain(tk.Frame):
             timer_frame,
             text="Start Focus",
             command=self.start_pomodoro,
-            style="Pomodoro.TButton",
+            style="Start.Pomodoro.TButton",
         )
         self.start_pomodoro_button.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -388,21 +422,6 @@ class CalendarWidgetMain(tk.Frame):
         self.update_events()
 
         self.after(1000 * 60, self.update_widget)  # Update every minutes
-
-    def update_pomodoro(self):
-        if self.pomodoro_active:
-            if self.pomodoro_time_left > 0:
-                minutes, seconds = divmod(self.pomodoro_time_left, 60)
-                self.pomodoro_time.config(text=f"{minutes:02d}:{seconds:02d}")
-                self.pomodoro_time_left -= 1
-            else:
-                self.pomodoro_active = False
-                self.start_pomodoro_button.config(text="Start Focus")
-                self.show_break_popup()
-                self.pomodoro_time_left = self.focus_time * 60
-                self.pomodoro_time.config(text=f"{self.focus_time}:00")
-
-        self.after(1000, self.update_pomodoro)
 
     def get_greeting(self, current_time):
         hour = current_time.hour
@@ -640,12 +659,31 @@ class CalendarWidgetMain(tk.Frame):
         if not self.pomodoro_active:
             self.pomodoro_active = True
             self.pomodoro_time_left = self.focus_time * 60
-            self.start_pomodoro_button.config(text="Stop Focus")
+            self.start_pomodoro_button.config(
+                text="Stop Focus", style="Stop.Pomodoro.TButton"
+            )
         else:
             self.pomodoro_active = False
             self.pomodoro_time_left = self.focus_time * 60
             self.pomodoro_time.config(text=f"{self.focus_time}:00")
-            self.start_pomodoro_button.config(text="Start Focus")
+            self.start_pomodoro_button.config(
+                text="Start Focus", style="Start.Pomodoro.TButton"
+            )
+
+    def update_pomodoro(self):
+        if self.pomodoro_active:
+            if self.pomodoro_time_left > 0:
+                minutes, seconds = divmod(self.pomodoro_time_left, 60)
+                self.pomodoro_time.config(text=f"{minutes:02d}:{seconds:02d}")
+                self.pomodoro_time_left -= 1
+            else:
+                self.pomodoro_active = False
+                self.start_pomodoro_button.config(text="Start Focus")
+                self.show_break_popup()
+                self.pomodoro_time_left = self.focus_time * 60
+                self.pomodoro_time.config(text=f"{self.focus_time}:00")
+
+        self.after(1000, self.update_pomodoro)
 
     def update_pomodoro_timer(self):
         if self.pomodoro_time_left > 0:
