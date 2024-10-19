@@ -64,12 +64,9 @@ If you encounter any issues with missing modules when building the executable, y
 
 ## License
 
-[Specify your license here]
+
 
 ## Contributing
 
-[Specify how others can contribute to your project]
+Feel free to contribute.
 
-## Contact
-
-[Your contact information or how to reach you for questions/support]

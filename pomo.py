@@ -12,6 +12,7 @@ from tkinter import messagebox, simpledialog, ttk
 import pytz
 import requests
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -744,8 +745,16 @@ class CalendarWidget(tk.Tk):
         self.token_path = os.path.join(self.config_dir, "token.enc")
         credentials_path = get_resource_path("credentials.json")
 
+        # Load environment variables
+        load_dotenv()
+        encryption_key = os.getenv("ENCRYPTION_KEY")
+        if not encryption_key:
+            encryption_key = base64.b64encode(os.urandom(32)).decode()
+            # print("No encryption key set, generated a random one:")
+            # print(encryption_key)
+
         # Initialize encryptor with a secret key (you should use a more secure key in production)
-        self.encryptor = Encryptor("your_secret_key_here")
+        self.encryptor = Encryptor(encryption_key)
 
         if not os.path.exists(credentials_path):
             self.show_error_message(
@@ -885,5 +894,5 @@ if __name__ == "__main__":
     app = CalendarWidget()
     app.mainloop()
 
-# pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --name=pomo.exe pomo.py
+# pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --add-data "timetab_win.ico;." --name=pomo.exe pomo.py
 # pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --hidden-import cryptography --add-binary "C:\path\to\python\Lib\site-packages\cryptography\hazmat\bindings\\_padding.pyd;cryptography\hazmat\bindings" --add-binary "C:\path\to\python\Lib\site-packages\cryptography\hazmat\bindings\\_openssl.pyd;cryptography\hazmat\bindings" --name=timetab.exe auto.py
