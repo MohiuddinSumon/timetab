@@ -3,13 +3,9 @@ import datetime
 import hashlib
 import json
 import os
-import socket
-import ssl
 import sys
 import threading
 import tkinter as tk
-import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from tkinter import messagebox, simpledialog, ttk
 
@@ -18,7 +14,7 @@ import requests
 from cryptography.fernet import Fernet
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from PIL import Image, ImageDraw, ImageOps, ImageTk
 
@@ -112,19 +108,6 @@ def create_tooltip(widget, text):
     widget.bind("<Leave>", leave)
 
 
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(b"Authentication successful! You can close this window.")
-        self.server.last_handler = self
-
-    def log_message(self, format, *args):
-        # Suppress console output
-        return
-
-
 def get_config_path():
     """Get the path to the configuration directory."""
     if sys.platform == "win32":
@@ -164,7 +147,7 @@ class LoginScreen(tk.Frame):
         self.auth_button.pack(pady=10)
 
     def start_auth(self):
-        self.parent.start_oauth_flow()
+        self.parent.authenticate()
 
 
 class CalendarWidgetMain(tk.Frame):
@@ -312,8 +295,8 @@ class CalendarWidgetMain(tk.Frame):
         self.menu = ttk.OptionMenu(
             self.time_menu_frame,
             self.menu_var,
-            "Menu",
-            "Settings",
+            "",
+            "About",
             "Logout",
             command=self.handle_menu_selection,
         )
@@ -323,10 +306,10 @@ class CalendarWidgetMain(tk.Frame):
     def handle_menu_selection(self, selection):
         if selection == "Logout":
             self.parent.logout()
-        elif selection == "Settings":
+        elif selection == "About":
             # Add settings functionality here
             pass
-        self.menu_var.set("Menu")  # Reset the menu to default text
+        self.menu_var.set("")  # Reset the menu to default text
 
     def create_events_area(self):
         self.events_canvas = tk.Canvas(self, bg="#ffffff", height=250, width=280)
@@ -773,6 +756,7 @@ class CalendarWidget(tk.Tk):
 
     def authenticate(self):
         creds = None
+        credential_path = get_resource_path("credentials.json")
         if os.path.exists(self.token_path):
             try:
                 with open(self.token_path, "r") as token_file:
@@ -782,59 +766,67 @@ class CalendarWidget(tk.Tk):
             except Exception as e:
                 print(f"Error loading credentials: {e}")
                 creds = None
+                if os.path.exists(self.token_path):
+                    os.remove(self.token_path)
 
         if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
+            if creds and creds.expired:  # and creds.refresh_token:
                 try:
                     creds.refresh(Request())
                 except Exception as e:
                     print(f"Error refreshing credentials: {e}")
                     creds = None
+                    if os.path.exists(self.token_path):
+                        os.remove(self.token_path)
 
             if not creds:
-                self.show_login_screen()
-                # self.start_oauth_flow()
-                return
+                if hasattr(self, "auth_thread") and self.auth_thread.is_alive():
+                    return  # Don't start another auth flow if one is already running
 
-        # Save the refreshed credentials
-        self.save_credentials(creds)
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    credential_path, SCOPES
+                )
+                self.auth_thread = threading.Thread(
+                    target=self.run_auth_flow, args=(flow,)
+                )
+                self.auth_thread.daemon = (
+                    True  # Make thread daemon so it closes with main app
+                )
+                self.auth_thread.start()
+                return  # Return here as we'll handle the rest in run_auth_flow
 
-        # Set the service after authentication
-        self.service = build("calendar", "v3", credentials=creds)
+        # If we have valid credentials, proceed with setup
+        self.setup_services(creds)
 
-        # Get user's name
-        user_info_service = build("oauth2", "v2", credentials=creds)
-        user_info = user_info_service.userinfo().get().execute()
-        # print(user_info)
-        self.user_name = user_info.get("name", "User")
-        self.user_image_url = user_info.get("picture", "")
-
-        self.show_calendar_widget()
-
-    def start_authentication(self):
-        credentials_path = get_resource_path("credentials.json")
-        self.flow = Flow.from_client_secrets_file(
-            credentials_path, scopes=SCOPES, redirect_uri="urn:ietf:wg:oauth:2.0:oob"
-        )
-        auth_url, _ = self.flow.authorization_url(prompt="consent")
-
-        webbrowser.open(auth_url)
-        messagebox.showinfo(
-            "Authentication",
-            "Please complete the authentication in your web browser and copy the authorization code.",
-        )
-
-    def complete_authentication(self, auth_code):
+    def run_auth_flow(self, flow):
+        """Run the OAuth flow in a separate thread and update the UI on completion."""
         try:
-            self.flow.fetch_token(code=auth_code)
-            creds = self.flow.credentials
-
+            creds = flow.run_local_server(
+                port=8080, access_type="offline", prompt="consent"
+            )
             self.save_credentials(creds)
+            # Use after_idle to safely update UI from the thread
+            self.after_idle(lambda: self.setup_services(creds))
+        except Exception as e:
+            print(f"Authentication error: {e}")
+            self.after_idle(
+                lambda: self.show_error_message(
+                    "Authentication failed. Please try again."
+                )
+            )
 
+    def setup_services(self, creds):
+        """Set up services after successful authentication"""
+        try:
             self.service = build("calendar", "v3", credentials=creds)
+            user_info_service = build("oauth2", "v2", credentials=creds)
+            user_info = user_info_service.userinfo().get().execute()
+            self.user_name = user_info.get("name", "User")
+            self.user_image_url = user_info.get("picture", "")
             self.show_calendar_widget()
         except Exception as e:
-            messagebox.showerror("Authentication Error", f"An error occurred: {str(e)}")
+            print(f"Error setting up services: {e}")
+            self.show_error_message("Failed to setup services. Please try again.")
 
     def save_credentials(self, creds):
         creds_data = {
@@ -845,102 +837,10 @@ class CalendarWidget(tk.Tk):
             "client_secret": creds.client_secret,
             "scopes": creds.scopes,
         }
+        # print(creds_data)
         encrypted_creds = self.encryptor.encrypt(creds_data)
         with open(self.token_path, "w") as token_file:
             token_file.write(encrypted_creds)
-
-    def start_oauth_flow(self):
-        credentials_path = get_resource_path("credentials.json")
-        self.flow = Flow.from_client_secrets_file(
-            credentials_path, scopes=SCOPES, redirect_uri=REDIRECT_URI
-        )
-
-        auth_url, _ = self.flow.authorization_url(prompt="consent")
-
-        # Open the default web browser
-        webbrowser.open(auth_url)
-
-        # Start local server to handle the callback
-        # self.start_local_server()
-
-        # Start secure local server to handle the callback
-        self.start_secure_local_server()
-
-    def start_local_server(self):
-        def run_server():
-            port = 8080
-            while True:
-                try:
-                    httpd = HTTPServer(("localhost", port), OAuthCallbackHandler)
-                    break
-                except socket.error:
-                    port += 1
-
-            httpd.handle_request()
-            authorization_response = REDIRECT_URI + httpd.path
-            self.complete_oauth_flow(authorization_response)
-
-        thread = threading.Thread(target=run_server)
-        thread.daemon = True
-        thread.start()
-
-    def start_secure_local_server(self):
-        key_file_path = get_resource_path("key.pem")
-        cert_file_path = get_resource_path("cert.pem")
-
-        def run_server():
-            port = 8080
-            while True:
-                try:
-                    handler = OAuthCallbackHandler
-                    httpd = HTTPServer(("localhost", port), handler)
-
-                    # Create SSL context
-                    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                    ssl_context.load_cert_chain(
-                        certfile=cert_file_path, keyfile=key_file_path
-                    )
-
-                    # Wrap the socket with SSL
-                    httpd.socket = ssl_context.wrap_socket(
-                        httpd.socket, server_side=True
-                    )
-
-                    print(f"Server running on https://localhost:{port}")
-                    break
-                except socket.error:
-                    port += 1
-
-            httpd.handle_request()
-
-            # Access the path from the handler instance
-            if hasattr(httpd, "last_handler") and hasattr(httpd.last_handler, "path"):
-                authorization_response = REDIRECT_URI + httpd.last_handler.path
-                self.complete_oauth_flow(authorization_response)
-            else:
-                print("Error: Unable to get authorization response")
-
-        thread = threading.Thread(target=run_server)
-        thread.daemon = True
-        thread.start()
-
-    def complete_oauth_flow(self, authorization_response):
-        try:
-            self.flow.fetch_token(authorization_response=authorization_response)
-            creds = self.flow.credentials
-
-            self.save_credentials(creds)
-
-            self.service = build("calendar", "v3", credentials=creds)
-            self.after(100, self.show_calendar_widget)
-        except Exception as e:
-            print("Error : ", e)
-            self.after(
-                100,
-                lambda: messagebox.showerror(
-                    "Authentication Error", f"An error occurred: {str(e)}"
-                ),
-            )
 
 
 if __name__ == "__main__":
