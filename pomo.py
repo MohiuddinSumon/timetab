@@ -342,8 +342,7 @@ class CalendarWidgetMain(tk.Frame):
         if selection == "Logout":
             self.parent.logout()
         elif selection == "About":
-            # Add settings functionality here
-            pass
+            self.parent.show_about_dialog()
         self.menu_var.set("")  # Reset the menu to default text
 
     def create_events_area(self):
@@ -756,6 +755,155 @@ class CalendarWidget(tk.Tk):
         self.login_screen = LoginScreen(self)
         self.login_screen.pack()
 
+    def show_about_dialog(self):
+        about_window = tk.Toplevel(self)
+        about_window.title("About TimeTab")
+        about_window.geometry("350x450")
+        about_window.resizable(False, False)
+        about_window.configure(bg="white")
+
+        # Make the window modal and centered on main app
+        about_window.transient(self)
+        about_window.grab_set()
+
+        # Center on main window
+        x = self.winfo_x() + (self.winfo_width() - 350) // 2
+        y = self.winfo_y() + (self.winfo_height() - 350) // 2
+        about_window.geometry(f"350x450+{x}+{y}")
+
+        # Configure styles for this dialog
+        style = ttk.Style()
+        style.configure("About.TLabel", background="white", font=("Helvetica", 10))
+        style.configure(
+            "AboutTitle.TLabel", background="white", font=("Helvetica", 16, "bold")
+        )
+        style.configure(
+            "AboutDesc.TLabel", background="white", font=("Helvetica", 10, "italic")
+        )
+        style.configure("AboutFrame.TLabelframe", background="white")
+        style.configure(
+            "AboutFrame.TLabelframe.Label",
+            background="white",
+            font=("Helvetica", 10, "bold"),
+        )
+
+        # Main frame to contain everything with white background
+        main_frame = ttk.Frame(about_window)
+        main_frame.configure(style="AboutFrame.TFrame")
+        main_frame.pack(fill="both", expand=True)
+
+        # Title
+        title_label = ttk.Label(main_frame, text="TimeTab", style="AboutTitle.TLabel")
+        title_label.pack(pady=10)
+
+        # Description
+        desc_label = ttk.Label(
+            main_frame,
+            text="Your Ultimate Productivity Companion",
+            style="AboutDesc.TLabel",
+        )
+        desc_label.pack()
+
+        # Links frame
+        links_frame = ttk.Frame(main_frame, style="AboutFrame.TFrame")
+        links_frame.pack(pady=15)
+
+        def open_url(url):
+            import webbrowser
+
+            webbrowser.open(url)
+
+        # Custom button styles
+        style.configure(
+            "Start.About.TButton",
+            background="#4CAF50",
+            foreground="white",
+            font=("Helvetica", 10, "bold"),
+            padding=5,
+        )
+        style.configure(
+            "Stop.About.TButton",
+            background="#cd50fa",
+            foreground="white",
+            font=("Helvetica", 10, "bold"),
+            padding=5,
+        )
+        style.configure(
+            "SetTime.About.TButton",
+            background="#2196F3",
+            foreground="white",
+            font=("Helvetica", 10),
+            padding=5,
+        )
+
+        # Homepage link
+        home_url = "https://fellowcoder.com/ai-tools-and-tips/timetab-your-ultimate-productivity-companion/"
+        home_button = ttk.Button(
+            links_frame,
+            text="Visit Homepage",
+            style="Start.About.TButton",
+            command=lambda: open_url(home_url),
+        )
+        home_button.pack(pady=5)
+
+        # GitHub link
+        github_url = "https://github.com/MohiuddinSumon/timetab"
+        github_button = ttk.Button(
+            links_frame,
+            text="View on GitHub",
+            style="Stop.About.TButton",
+            command=lambda: open_url(github_url),
+        )
+        github_button.pack(pady=5)
+
+        # Privacy Policy link
+        privacy_url = "https://fellowcoder.com/ai-tools-and-tips/timetab-your-ultimate-productivity-companion/timetab-privacy-policy/"
+        privacy_button = ttk.Button(
+            links_frame,
+            text="Privacy Policy",
+            style="SetTime.About.TButton",
+            command=lambda: open_url(privacy_url),
+        )
+        privacy_button.pack(pady=5)
+
+        # Features
+        features_frame = ttk.LabelFrame(
+            main_frame, text="Key Features", style="AboutFrame.TLabelframe"
+        )
+        features_frame.pack(padx=20, pady=5, fill="x")
+
+        features = [
+            "Google Calendar Integration",
+            "Customizable Pomodoro Timer",
+            "Current and Upcoming Events Display",
+            "Break Time Notifications",
+            "Secure OAuth2 Authentication",
+        ]
+
+        for feature in features:
+            feature_label = ttk.Label(
+                features_frame, text=f"• {feature}", style="About.TLabel"
+            )
+            feature_label.pack(anchor="w", padx=10, pady=2)
+
+        # Version info
+        version_label = ttk.Label(
+            main_frame, text="Version 1.0.0", style="About.TLabel"
+        )
+        version_label.pack(pady=5)
+
+        # Close button
+        close_button = ttk.Button(
+            main_frame,
+            text="Close",
+            style="SetTime.About.TButton",
+            command=about_window.destroy,
+        )
+        close_button.pack(pady=5)
+
+        # Keep focus on the about window
+        about_window.focus_set()
+
     def logout(self):
         if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
             # Clear the stored credentials
@@ -879,5 +1027,5 @@ if __name__ == "__main__":
     app = CalendarWidget()
     app.mainloop()
 
-# pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --add-data "timetab_win.ico;." --name=pomo.exe pomo.py
+# pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --add-data "timetab_win.ico;." --name=timetab.exe pomo.py
 # pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --hidden-import cryptography --add-binary "C:\path\to\python\Lib\site-packages\cryptography\hazmat\bindings\\_padding.pyd;cryptography\hazmat\bindings" --add-binary "C:\path\to\python\Lib\site-packages\cryptography\hazmat\bindings\\_openssl.pyd;cryptography\hazmat\bindings" --name=timetab.exe auto.py
