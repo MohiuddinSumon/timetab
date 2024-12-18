@@ -595,6 +595,7 @@ class CalendarWidgetMain(tk.Frame):
 
         current_events = []
         upcoming_events = []
+        newly_started_events = []
 
         for event in events_result.get("items", []):
             start = event["start"].get("dateTime", event["start"].get("date"))
@@ -608,8 +609,15 @@ class CalendarWidgetMain(tk.Frame):
                 end.replace("Z", "+00:00")
             ).astimezone(pytz.UTC)
 
+            # Check if event is currently happening
             if start_dt <= now <= end_dt:
                 current_events.append(event)
+
+                # Check if the event just started (within the last minute)
+                if now - start_dt <= datetime.timedelta(minutes=1):
+                    newly_started_events.append(event)
+
+            # Check for upcoming events
             elif start_dt > now:
                 upcoming_events.append(event)
 
@@ -625,7 +633,69 @@ class CalendarWidgetMain(tk.Frame):
             if len(current_events) + len(upcoming_events) >= 4:
                 break
 
+        # Trigger notifications for newly started events
+        if newly_started_events:
+            self.show_event_start_notifications(newly_started_events)
+
         return current_events, upcoming_events
+
+    def show_event_start_notifications(self, events):
+        """Display notifications for events that just started"""
+        for event in events:
+            notification_window = tk.Toplevel(self)
+            notification_window.title("Event Starting")
+            notification_window.geometry("300x150")
+            notification_window.attributes("-topmost", True)
+            notification_window.configure(bg="#f0f0f0")
+
+            # Set custom icon
+            icon_path = get_resource_path("timetab_win.ico")
+            notification_window.iconbitmap(icon_path)
+
+            # Event title
+            title_label = tk.Label(
+                notification_window,
+                text="Event Started",
+                font=("Helvetica", 14, "bold"),
+                bg="#f0f0f0",
+            )
+            title_label.pack(pady=(10, 5))
+
+            # Event summary
+            summary_label = tk.Label(
+                notification_window,
+                text=event.get("summary", "Untitled Event"),
+                font=("Helvetica", 12),
+                bg="#f0f0f0",
+            )
+            summary_label.pack(pady=5)
+
+            # Start and end time
+            start = event["start"].get("dateTime", event["start"].get("date"))
+            end = event["end"].get("dateTime", event["end"].get("date"))
+            start_dt = datetime.datetime.fromisoformat(start.replace("Z", "+00:00"))
+            end_dt = datetime.datetime.fromisoformat(end.replace("Z", "+00:00"))
+
+            time_label = tk.Label(
+                notification_window,
+                text=f"{start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%Y-%m-%d %H:%M')}",
+                font=("Helvetica", 10),
+                bg="#f0f0f0",
+            )
+            time_label.pack(pady=5)
+
+            # Close button
+            close_button = tk.Button(
+                notification_window,
+                text="Close",
+                command=notification_window.destroy,
+                bg="#4CAF50",
+                fg="white",
+            )
+            close_button.pack(pady=10)
+
+            # Auto-close after 10 seconds
+            notification_window.after(10000, notification_window.destroy)
 
     def set_focus_time(self):
         new_time = simpledialog.askinteger(
