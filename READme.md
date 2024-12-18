@@ -45,6 +45,7 @@ To build an executable:
 ```
 pyinstaller --onefile --windowed --icon=timetab_win.ico --add-data "credentials.json;." --add-data "timetab_win.ico;." --hidden-import cryptography --hidden-import pytz --name=timetab.exe pomo.py
 ```
+or run python build_exe.py
 
 Replace `pomo.py` with the name of your Python script if it's different.
 
